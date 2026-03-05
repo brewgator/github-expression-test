@@ -9,7 +9,7 @@ on:
         default: false
         type: boolean
   schedule:
-    - cron: '*/1 * * * *'  # Every minute for quick testing
+    - cron: '* * * * *'  # Every minute for quick testing
   pull_request:
 
 jobs:
