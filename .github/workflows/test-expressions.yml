@@ -9,7 +9,7 @@ on:
         default: false
         type: boolean
   schedule:
-    - cron: '*/5 * * * *'  # Every 5 minutes for testing (force resync)
+    - cron: '*/5 * * * *'  # Every 5 minutes for testing (force resync 2)
   pull_request:
 
 jobs:
