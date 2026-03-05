@@ -6,7 +6,7 @@ on:
       pull-request-number:
         type: number
         description: A pull request number
-        required: false
+        required: true
 
 jobs:
   test:

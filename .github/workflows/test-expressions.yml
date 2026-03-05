@@ -31,8 +31,8 @@ jobs:
     needs: setup
     uses: ./.github/workflows/reusable-test.yml
     with:
-      # EXACT VAULT-ENTERPRISE PATTERN - should fail in schedule context
-      pull-request-number: ${{ needs.setup.outputs.workflow-trigger == 'pull_request' && github.event.pull_request.number || 0 }}
+      # EXACT ORIGINAL FAILING PATTERN - accessing undefined property directly
+      pull-request-number: ${{ github.event.pull_request.number || '' }}
 
   # Test the fixed expression
   test-fixed-expression:
@@ -40,8 +40,8 @@ jobs:
     needs: setup
     uses: ./.github/workflows/reusable-test.yml
     with:
-      # FIXED VAULT-ENTERPRISE PATTERN - should work in all contexts
-      pull-request-number: ${{ needs.setup.outputs.workflow-trigger == 'pull_request' && github.event.pull_request && github.event.pull_request.number || 0 }}
+      # FIXED PATTERN - safe null check
+      pull-request-number: ${{ github.event.pull_request && github.event.pull_request.number || '' }}
 
   # Debug context
   debug-context:
