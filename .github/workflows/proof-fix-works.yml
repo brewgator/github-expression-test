@@ -23,7 +23,6 @@ jobs:
   # ❌ THIS JOB WILL FAIL - Original broken expression
   test-original-broken:
     name: "❌ ORIGINAL (BROKEN) - Will Fail"
-    runs-on: ubuntu-latest
     needs: setup
     # This job uses the EXACT original failing pattern from vault-enterprise
     uses: ./.github/workflows/reusable-test.yml
@@ -34,7 +33,6 @@ jobs:
   # ✅ THIS JOB WILL PASS - Fixed expression with null-check
   test-fixed-working:
     name: "✅ FIXED (WORKING) - Will Pass"
-    runs-on: ubuntu-latest
     needs: setup
     # This job uses the FIXED pattern with null-check
     uses: ./.github/workflows/reusable-test.yml
