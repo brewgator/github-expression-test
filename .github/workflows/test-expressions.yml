@@ -13,21 +13,34 @@ on:
   pull_request:
 
 jobs:
-  # Test the original expression that should fail in scheduled context
+  # Setup job to mimic vault-enterprise pattern
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      workflow-trigger: ${{ steps.metadata.outputs.workflow-trigger }}
+    steps:
+      - id: metadata
+        name: Set workflow trigger
+        run: |
+          echo "workflow-trigger=${{ github.event_name }}" | tee -a "$GITHUB_OUTPUT"
+
+  # Test the EXACT original vault-enterprise expression that should fail
   test-original-expression:
     if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.test-original)
+    needs: setup
     uses: ./.github/workflows/reusable-test.yml
     with:
-      # ORIGINAL VAULT-ENTERPRISE PATTERN - should fail in schedule context
-      pull-request-number: ${{ github.event_name == 'pull_request' && github.event.pull_request.number || 0 }}
+      # EXACT VAULT-ENTERPRISE PATTERN - should fail in schedule context
+      pull-request-number: ${{ needs.setup.outputs.workflow-trigger == 'pull_request' && github.event.pull_request.number || 0 }}
 
   # Test the fixed expression
   test-fixed-expression:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request'
+    needs: setup
     uses: ./.github/workflows/reusable-test.yml
     with:
       # FIXED VAULT-ENTERPRISE PATTERN - should work in all contexts
-      pull-request-number: ${{ github.event_name == 'pull_request' && github.event.pull_request && github.event.pull_request.number || 0 }}
+      pull-request-number: ${{ needs.setup.outputs.workflow-trigger == 'pull_request' && github.event.pull_request && github.event.pull_request.number || 0 }}
 
   # Debug context
   debug-context:

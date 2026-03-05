@@ -1,0 +1,19 @@
+name: setup-job
+
+on:
+  workflow_call:
+    outputs:
+      workflow-trigger:
+        description: The workflow trigger type
+        value: ${{ jobs.setup.outputs.workflow-trigger }}
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      workflow-trigger: ${{ steps.metadata.outputs.workflow-trigger }}
+    steps:
+      - id: metadata
+        name: Set workflow trigger
+        run: |
+          echo "workflow-trigger=${{ github.event_name }}" | tee -a "$GITHUB_OUTPUT"
