@@ -1,0 +1,40 @@
+name: test-expressions
+
+on:
+  workflow_dispatch:
+    inputs:
+      test-original:
+        description: 'Test original broken expression'
+        required: false
+        default: false
+        type: boolean
+  schedule:
+    - cron: '*/1 * * * *'  # Every minute for quick testing
+  pull_request:
+
+jobs:
+  # Test the original expression that should fail in scheduled context
+  test-original-expression:
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.test-original)
+    uses: ./.github/workflows/reusable-test.yml
+    with:
+      # ORIGINAL EXPRESSION - should fail in schedule context
+      pull-request-number: ${{ github.event.pull_request.number || 0 }}
+
+  # Test the fixed expression
+  test-fixed-expression:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request'
+    uses: ./.github/workflows/reusable-test.yml
+    with:
+      # FIXED EXPRESSION - should work in all contexts
+      pull-request-number: ${{ github.event.pull_request && github.event.pull_request.number || 0 }}
+
+  # Debug context
+  debug-context:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Debug
+        run: |
+          echo "Event: ${{ github.event_name }}"
+          echo "PR exists: ${{ github.event.pull_request != null }}"
+          echo "PR number exists: ${{ github.event.pull_request.number != null }}"
