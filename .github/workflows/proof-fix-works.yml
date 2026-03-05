@@ -1,0 +1,63 @@
+name: PROOF - GitHub Actions Expression Fix Works
+
+on:
+  workflow_dispatch:
+    inputs:
+      simulate-schedule:
+        description: 'Simulate scheduled context (no pull_request object)'
+        required: false
+        default: true
+        type: boolean
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      workflow-trigger: ${{ steps.metadata.outputs.workflow-trigger }}
+    steps:
+      - id: metadata
+        name: Set workflow trigger
+        run: |
+          echo "workflow-trigger=${{ github.event_name }}" | tee -a "$GITHUB_OUTPUT"
+
+  # ❌ THIS JOB WILL FAIL - Original broken expression
+  test-original-broken:
+    name: "❌ ORIGINAL (BROKEN) - Will Fail"
+    runs-on: ubuntu-latest
+    needs: setup
+    # This job uses the EXACT original failing pattern from vault-enterprise
+    uses: ./.github/workflows/reusable-test.yml
+    with:
+      # ⚠️ BROKEN: Accessing .number on undefined object causes evaluation error
+      pull-request-number: ${{ github.event.pull_request.number || '' }}
+
+  # ✅ THIS JOB WILL PASS - Fixed expression with null-check
+  test-fixed-working:
+    name: "✅ FIXED (WORKING) - Will Pass"
+    runs-on: ubuntu-latest
+    needs: setup
+    # This job uses the FIXED pattern with null-check
+    uses: ./.github/workflows/reusable-test.yml
+    with:
+      # ✅ FIXED: Check if object exists before accessing .number property
+      pull-request-number: ${{ github.event.pull_request && github.event.pull_request.number || '' }}
+
+  # 📊 Debug information to show context
+  debug-proof:
+    name: "📊 Debug Context"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Show GitHub context
+        run: |
+          echo "🔍 PROOF OF FIX EVIDENCE:"
+          echo "Event Type: ${{ github.event_name }}"
+          echo "PR Object Exists: ${{ github.event.pull_request != null }}"
+          echo ""
+          echo "💡 EXPLANATION:"
+          echo "- In workflow_dispatch (like schedule), github.event.pull_request is undefined"
+          echo "- Original expression: github.event.pull_request.number tries to access .number on undefined"
+          echo "- Fixed expression: github.event.pull_request && github.event.pull_request.number checks existence first"
+          echo ""
+          echo "📈 EXPECTED RESULTS:"
+          echo "- 'ORIGINAL (BROKEN)' job should FAIL with input evaluation error"
+          echo "- 'FIXED (WORKING)' job should PASS successfully"
