@@ -28,8 +28,8 @@ jobs:
     # This job uses the FIXED pattern
     uses: ./.github/workflows/reusable-test.yml
     with:
-      # ✅ FIXED: Use null instead of empty string when not a PR context
-      pull-request: ${{ github.event_name == 'pull_request' && github.event.pull_request && github.event.pull_request.number || null }}
+      # ✅ FIXED: Only pass the input when it's actually a PR with a valid number
+      pull-request: ${{ github.event_name == 'pull_request' && github.event.pull_request.number || 0 }}
 
   # 📊 Debug information to show context
   debug-proof:
