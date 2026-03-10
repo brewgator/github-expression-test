@@ -8,6 +8,9 @@ on:
         required: false
         default: true
         type: boolean
+  schedule:
+    - cron: '*/5 * * * *'  # Every 5 minutes for testing
+  pull_request:
 
 jobs:
   setup:
@@ -23,22 +26,29 @@ jobs:
   # ❌ THIS JOB WILL FAIL - Original broken expression
   test-original-broken:
     name: "❌ ORIGINAL (BROKEN) - Will Fail"
+    if: |
+      ( needs.setup.outputs.workflow-trigger == 'schedule' ) && true ||
+      ( needs.setup.outputs.workflow-trigger == 'pull_request' )
     needs: setup
     # This job uses the EXACT original failing pattern from vault-enterprise
     uses: ./.github/workflows/reusable-test.yml
     with:
-      # ⚠️ BROKEN: Accessing .number on undefined object causes evaluation error
-      pull-request-number: ${{ github.event.pull_request.number || '' }}
+      # ⚠️ BROKEN: EXACT vault-enterprise pattern that fails on schedule
+      # When scheduled, this evaluates to empty string '' which fails number type validation
+      pull-request: ${{ github.event_name == 'pull_request' && github.event.pull_request && github.event.pull_request.number || '' }}
 
-  # ✅ THIS JOB WILL PASS - Fixed expression with null-check
+  # ✅ THIS JOB WILL PASS - Fixed expression with proper handling
   test-fixed-working:
     name: "✅ FIXED (WORKING) - Will Pass"
+    if: |
+      ( needs.setup.outputs.workflow-trigger == 'schedule' ) && true ||
+      ( needs.setup.outputs.workflow-trigger == 'pull_request' )
     needs: setup
-    # This job uses the FIXED pattern with null-check
+    # This job uses the FIXED pattern
     uses: ./.github/workflows/reusable-test.yml
     with:
-      # ✅ FIXED: Check if object exists before accessing .number property
-      pull-request-number: ${{ github.event.pull_request && github.event.pull_request.number || '' }}
+      # ✅ FIXED: Proper handling for schedule context - null when not PR
+      pull-request: ${{ github.event_name == 'pull_request' && github.event.pull_request && github.event.pull_request.number || null }}
 
   # 📊 Debug information to show context
   debug-proof:

@@ -3,10 +3,10 @@ name: reusable-test
 on:
   workflow_call:
     inputs:
-      pull-request-number:
+      pull-request:
         type: number
         description: A pull request number
-        required: true
+        required: false
 
 jobs:
   test:
@@ -14,5 +14,5 @@ jobs:
     steps:
       - name: Show input
         run: |
-          echo "PR Number: '${{ inputs.pull-request-number }}'"
+          echo "PR Number: '${{ inputs.pull-request }}'"
           echo "Test completed"
