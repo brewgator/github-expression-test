@@ -1,0 +1,133 @@
+name: APPROACH 1 - Debuggable with Separate Steps
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '*/4 * * * *'  # Every 4 minutes for testing
+  pull_request:
+
+jobs:
+  # Enhanced setup job with explicit logic extraction
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      workflow-trigger: ${{ steps.metadata.outputs.workflow-trigger }}
+      pull-request-number: ${{ steps.pr-logic.outputs.pull-request-number }}
+      branch-name: ${{ steps.branch-logic.outputs.branch-name }}
+      is-pr-context: ${{ steps.context-check.outputs.is-pr-context }}
+      is-schedule-context: ${{ steps.context-check.outputs.is-schedule-context }}
+    steps:
+      - id: metadata
+        name: Set workflow trigger
+        run: |
+          echo "🔍 DEBUGGING: Setting workflow trigger"
+          echo "workflow-trigger=${{ github.event_name }}" | tee -a "$GITHUB_OUTPUT"
+          echo "✅ Workflow trigger set to: ${{ github.event_name }}"
+
+      - id: context-check
+        name: Check execution context
+        run: |
+          echo "🔍 DEBUGGING: Checking execution context"
+
+          # Check if we're in a PR context
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            echo "is-pr-context=true" | tee -a "$GITHUB_OUTPUT"
+            echo "✅ PR context detected"
+          else
+            echo "is-pr-context=false" | tee -a "$GITHUB_OUTPUT"
+            echo "ℹ️  Not a PR context"
+          fi
+
+          # Check if we're in a schedule context
+          if [[ "${{ github.event_name }}" == "schedule" ]]; then
+            echo "is-schedule-context=true" | tee -a "$GITHUB_OUTPUT"
+            echo "✅ Schedule context detected"
+          else
+            echo "is-schedule-context=false" | tee -a "$GITHUB_OUTPUT"
+            echo "ℹ️  Not a schedule context"
+          fi
+
+      - id: pr-logic
+        name: Determine PR number (with debugging)
+        run: |
+          echo "🔍 DEBUGGING: Determining PR number"
+          echo "Event name: ${{ github.event_name }}"
+          echo "PR object exists: ${{ github.event.pull_request != null }}"
+          echo "Raw PR number: '${{ github.event.pull_request.number }}'"
+
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            # We're in PR context - extract the number
+            PR_NUM="${{ github.event.pull_request.number }}"
+            if [[ -n "$PR_NUM" && "$PR_NUM" != "null" ]]; then
+              echo "✅ Found valid PR number: $PR_NUM"
+            else
+              echo "⚠️  PR context but no valid number found, using 0"
+              PR_NUM="0"
+            fi
+          else
+            # Not a PR context - use 0 for number type compatibility
+            PR_NUM="0"
+            echo "ℹ️  Not PR context, using fallback value: $PR_NUM"
+          fi
+
+          echo "pull-request-number=$PR_NUM" | tee -a "$GITHUB_OUTPUT"
+          echo "✅ Final PR number: $PR_NUM"
+
+      - id: branch-logic
+        name: Determine branch (with debugging)
+        run: |
+          echo "🔍 DEBUGGING: Determining branch"
+          echo "Event name: ${{ github.event_name }}"
+
+          if [[ "${{ github.event_name }}" == "schedule" ]]; then
+            BRANCH="main"
+            echo "✅ Schedule context, using main branch: $BRANCH"
+          elif [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            BRANCH=""
+            echo "ℹ️  PR context, using empty branch (PR-specific logic)"
+          else
+            BRANCH=""
+            echo "ℹ️  Other context, using empty branch"
+          fi
+
+          echo "branch-name=$BRANCH" | tee -a "$GITHUB_OUTPUT"
+          echo "✅ Final branch: '$BRANCH'"
+
+  # Test the logic using the debuggable outputs
+  test-debuggable-approach:
+    name: "✅ DEBUGGABLE - Using Separate Steps"
+    needs: setup
+    # Only run when we have proper context
+    if: |
+      needs.setup.outputs.is-schedule-context == 'true' ||
+      needs.setup.outputs.is-pr-context == 'true' ||
+      github.event_name == 'workflow_dispatch'
+    uses: ./.github/workflows/reusable-test.yml
+    with:
+      # Use the clearly computed outputs instead of complex inline expressions
+      pull-request: ${{ needs.setup.outputs.pull-request-number }}
+
+  # Debug output to show all computed values
+  debug-computed-values:
+    name: "📊 Debug Computed Values"
+    needs: setup
+    runs-on: ubuntu-latest
+    steps:
+      - name: Show all computed values
+        run: |
+          echo "🔍 FINAL COMPUTED VALUES:"
+          echo "================================="
+          echo "Workflow Trigger: '${{ needs.setup.outputs.workflow-trigger }}'"
+          echo "PR Number: '${{ needs.setup.outputs.pull-request-number }}'"
+          echo "Branch: '${{ needs.setup.outputs.branch-name }}'"
+          echo "Is PR Context: '${{ needs.setup.outputs.is-pr-context }}'"
+          echo "Is Schedule Context: '${{ needs.setup.outputs.is-schedule-context }}'"
+          echo ""
+          echo "🔧 ORIGINAL PROBLEMATIC EXPRESSION WOULD BE:"
+          echo "github.event_name == 'pull_request' && github.event.pull_request && github.event.pull_request.number || ''"
+          echo ""
+          echo "🎯 OUR APPROACH BREAKS THIS DOWN INTO:"
+          echo "1. Check context type explicitly"
+          echo "2. Extract PR number with validation"
+          echo "3. Provide clear fallback values"
+          echo "4. Make each step visible and debuggable"

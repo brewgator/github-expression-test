@@ -1,0 +1,174 @@
+name: DEBUGGING COMPARISON - Old vs New Approach
+
+on:
+  workflow_dispatch:
+    inputs:
+      test-both-approaches:
+        description: 'Test both old and new approaches'
+        required: false
+        default: true
+        type: boolean
+
+jobs:
+  # NEW APPROACH: Debuggable with explicit steps
+  setup-new-approach:
+    name: "🆕 New Approach Setup"
+    runs-on: ubuntu-latest
+    outputs:
+      pull-request-number: ${{ steps.pr-logic.outputs.pull-request-number }}
+      branch-name: ${{ steps.branch-logic.outputs.branch-name }}
+    steps:
+      - name: Header
+        run: |
+          echo "================================================"
+          echo "🆕 NEW APPROACH: Explicit Step-by-Step Logic"
+          echo "================================================"
+
+      - id: pr-logic
+        name: "🔍 NEW: Determine PR number with debugging"
+        run: |
+          echo "🔍 STEP 1: Analyzing PR context"
+          echo "  Event name: '${{ github.event_name }}'"
+          echo "  PR object exists: ${{ github.event.pull_request != null }}"
+          echo "  Raw PR number: '${{ github.event.pull_request.number }}'"
+
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            PR_NUM="${{ github.event.pull_request.number }}"
+            echo "  ✅ PR context detected, number: $PR_NUM"
+          else
+            PR_NUM="0"
+            echo "  ℹ️  Non-PR context, using safe fallback: $PR_NUM"
+          fi
+
+          echo "pull-request-number=$PR_NUM" | tee -a "$GITHUB_OUTPUT"
+          echo "  🎯 RESULT: PR number = $PR_NUM"
+
+      - id: branch-logic
+        name: "🔍 NEW: Determine branch with debugging"
+        run: |
+          echo "🔍 STEP 2: Analyzing branch context"
+          echo "  Event name: '${{ github.event_name }}'"
+
+          if [[ "${{ github.event_name }}" == "schedule" ]]; then
+            BRANCH="main"
+            echo "  ✅ Schedule context, using: $BRANCH"
+          else
+            BRANCH=""
+            echo "  ℹ️  Non-schedule context, using empty: '$BRANCH'"
+          fi
+
+          echo "branch-name=$BRANCH" | tee -a "$GITHUB_OUTPUT"
+          echo "  🎯 RESULT: Branch = '$BRANCH'"
+
+  # OLD APPROACH: Complex inline expressions (would fail)
+  setup-old-approach:
+    name: "🔴 Old Approach Setup"
+    runs-on: ubuntu-latest
+    outputs:
+      pull-request-old: ${{ steps.old-logic.outputs.pull-request-old }}
+      branch-old: ${{ steps.old-logic.outputs.branch-old }}
+    steps:
+      - name: Header
+        run: |
+          echo "================================================"
+          echo "🔴 OLD APPROACH: Complex Inline Expressions"
+          echo "================================================"
+
+      - id: old-logic
+        name: "🔴 OLD: Complex expression simulation"
+        run: |
+          echo "🔴 ATTEMPTING: Complex inline expressions"
+          echo "  This simulates what the old approach would try to do:"
+          echo "  Expression 1: github.event_name == 'pull_request' && github.event.pull_request && github.event.pull_request.number || ''"
+          echo "  Expression 2: github.event_name == 'schedule' && 'main' || ''"
+          echo ""
+          echo "❌ PROBLEM: In non-PR contexts (like workflow_dispatch/schedule):"
+          echo "   - github.event.pull_request is undefined"
+          echo "   - Expression evaluates to empty string ''"
+          echo "   - Reusable workflow expects number type"
+          echo "   - Results in: 'Unexpected value' error"
+          echo ""
+          echo "🎯 SIMULATED RESULTS (what old approach would produce):"
+
+          # Simulate the old problematic logic
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            OLD_PR="${{ github.event.pull_request.number }}"
+          else
+            OLD_PR=""  # This is the problematic empty string
+          fi
+
+          if [[ "${{ github.event_name }}" == "schedule" ]]; then
+            OLD_BRANCH="main"
+          else
+            OLD_BRANCH=""
+          fi
+
+          echo "  PR result: '$OLD_PR' (❌ Empty string would cause validation error)"
+          echo "  Branch result: '$OLD_BRANCH'"
+
+          echo "pull-request-old=$OLD_PR" | tee -a "$GITHUB_OUTPUT"
+          echo "branch-old=$OLD_BRANCH" | tee -a "$GITHUB_OUTPUT"
+
+  # Test NEW approach (should work)
+  test-new-approach:
+    name: "✅ NEW: Working Test"
+    needs: setup-new-approach
+    uses: ./.github/workflows/reusable-test.yml
+    with:
+      pull-request: ${{ needs.setup-new-approach.outputs.pull-request-number }}
+
+  # Show why OLD approach fails
+  demonstrate-old-failure:
+    name: "❌ OLD: Why It Fails"
+    needs: setup-old-approach
+    runs-on: ubuntu-latest
+    steps:
+      - name: Explain old approach failure
+        run: |
+          echo "================================================"
+          echo "❌ WHY OLD APPROACH FAILS"
+          echo "================================================"
+          echo "Old approach would try to pass:"
+          echo "  pull-request: '${{ needs.setup-old-approach.outputs.pull-request-old }}'"
+          echo ""
+          if [[ -z "${{ needs.setup-old-approach.outputs.pull-request-old }}" ]]; then
+            echo "🚨 FAILURE POINT: Empty string cannot be converted to number type"
+            echo "   GitHub Actions validation error: 'Unexpected value \"\"'"
+            echo "   Workflow fails before jobs even start running"
+          else
+            echo "✅ This would work (PR context)"
+          fi
+
+  # Final comparison
+  final-comparison:
+    name: "📊 Final Comparison"
+    needs: [setup-new-approach, setup-old-approach, test-new-approach]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Compare approaches
+        run: |
+          echo "================================================"
+          echo "📊 APPROACH COMPARISON SUMMARY"
+          echo "================================================"
+          echo ""
+          echo "🔴 OLD APPROACH PROBLEMS:"
+          echo "  ❌ Complex inline expressions are hard to debug"
+          echo "  ❌ No visibility into intermediate values"
+          echo "  ❌ Single point of failure with cryptic errors"
+          echo "  ❌ Type validation happens at workflow level"
+          echo "  ❌ Empty string '' fails number type validation"
+          echo ""
+          echo "🆕 NEW APPROACH BENEFITS:"
+          echo "  ✅ Each step is explicit and debuggable"
+          echo "  ✅ Clear logging shows intermediate values"
+          echo "  ✅ Proper fallback values (0 instead of '')"
+          echo "  ✅ Type-safe by design"
+          echo "  ✅ Easy to troubleshoot and maintain"
+          echo ""
+          echo "📈 RESULTS:"
+          echo "  New approach PR number: ${{ needs.setup-new-approach.outputs.pull-request-number }}"
+          echo "  Old approach PR number: '${{ needs.setup-old-approach.outputs.pull-request-old }}'"
+          echo "  New approach test status: ${{ needs.test-new-approach.result }}"
+          echo ""
+          echo "🎯 RECOMMENDATION: Use the new approach for better maintainability!"
